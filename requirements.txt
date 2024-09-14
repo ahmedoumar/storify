@@ -1,0 +1,21 @@
+anthropic==0.3.4
+matplotlib
+openai==0.27.8
+pandas
+python-dotenv==1.0.0
+requests==2.31.0
+scikit-learn
+seaborn
+streamlit
+transformers
+Pillow
+gTTS
+pydub
+watchdog
+
+from dotenv import load_dotenv
+import os
+import openai
+
+load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
