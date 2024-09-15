@@ -18,6 +18,8 @@ import openai
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+
+
 def initialize_session_state():
     if 'messages' not in st.session_state:
         st.session_state.messages = []
@@ -36,26 +38,29 @@ def initialize_session_state():
 
 def handle_authentication():
     if st.session_state.username is None:
-        auth_option = st.radio("Choose an option:", ["Login", "Sign Up"])
-        
-        if auth_option == "Login":
-            username = st.text_input("Username")
-            password = st.text_input("Password", type="password")
-            if st.button("Login"):
-                if verify_user(username, password):
-                    st.session_state.username = username
-                    st.success("Logged in successfully!")
-                    st.rerun()
-                else:
-                    st.error("Invalid username or password")
-        else:
-            new_username = st.text_input("New Username")
-            new_password = st.text_input("New Password", type="password")
-            if st.button("Sign Up"):
-                if add_user(new_username, new_password):
-                    st.success("Account created successfully! Please log in.")
-                else:
-                    st.error("Username already exists")
+        # Create a centered column for the login/signup form
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            auth_option = st.radio("Choose an option:", ["Login", "Sign Up"])
+            
+            if auth_option == "Login":
+                username = st.text_input("Username")
+                password = st.text_input("Password", type="password")
+                if st.button("Login", use_container_width=True):
+                    if verify_user(username, password):
+                        st.session_state.username = username
+                        st.success("Logged in successfully!")
+                        st.rerun()
+                    else:
+                        st.error("Invalid username or password")
+            else:
+                new_username = st.text_input("New Username")
+                new_password = st.text_input("New Password", type="password")
+                if st.button("Sign Up", use_container_width=True):
+                    if add_user(new_username, new_password):
+                        st.success("Account created successfully! Please log in.")
+                    else:
+                        st.error("Username already exists")
     else:
         st.write(f"Welcome, {st.session_state.username}!")
         if st.button("Logout"):
@@ -84,7 +89,7 @@ def display_chat():
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
             if 'image' in message:
-                st.image(base64_to_image(message['image']), caption="Generated Story Image")
+                st.image(base64_to_image(message['image']), caption="Generated Story Image", use_column_width=True)
             if 'audio' in message:
                 st.audio(message['audio'], format='audio/mp3')
             
@@ -92,33 +97,29 @@ def display_chat():
                 handle_message_actions(i, message)
 
 def handle_message_actions(i, message):
-    col1, col2, col3, col4, col5 = st.columns([1,1,1,1,4])
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        if st.button('👍', key=f"thumbs_up_{i}"):
-            st.success("Thanks for your feedback!")
+        st.button('👍', key=f"thumbs_up_{i}", help="Like this response")
     with col2:
-        if st.button('👎', key=f"thumbs_down_{i}"):
-            st.error("We'll try to improve!")
+        st.button('👎', key=f"thumbs_down_{i}", help="Dislike this response")
     with col3:
-        if st.button('Edit', key=f"edit_{i}"):
-            st.session_state.editing_story = True
-            st.session_state.current_story = message['content']
-            st.rerun()
+        st.button('Edit', key=f"edit_{i}", help="Edit this story")
     with col4:
-        if 'audio' not in message and st.button('Listen', key=f"listen_{i}"):
-            with st.spinner("Generating audio..."):
-                audio_bytes = text_to_speech(message['content'])
-                message['audio'] = audio_bytes
-            st.audio(message['audio'], format='audio/mp3')
-    with col5:
-        if 'image' not in message and st.button('Generate Image', key=f"gen_image_{i}"):
-            with st.spinner("Generating image..."):
-                image = generate_story_image_dalle(message['content'][:1000])
-                if image:
-                    message['image'] = image_to_base64(image)
-                    st.rerun()
-                else:
-                    st.error("Failed to generate image. Please try again.")
+        if 'audio' not in message:
+            if st.button('Listen', key=f"listen_{i}", help="Convert to speech"):
+                with st.spinner("Generating audio..."):
+                    audio_bytes = text_to_speech(message['content'])
+                    message['audio'] = audio_bytes
+                st.audio(message['audio'], format='audio/mp3')
+        if 'image' not in message:
+            if st.button('Image', key=f"gen_image_{i}", help="Generate image"):
+                with st.spinner("Generating image..."):
+                    image = generate_story_image_dalle(message['content'][:1000])
+                    if image:
+                        message['image'] = image_to_base64(image)
+                        st.rerun()
+                    else:
+                        st.error("Failed to generate image. Please try again.")
 
 def handle_story_editing():
     st.subheader("Edit your story")
