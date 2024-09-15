@@ -45,23 +45,35 @@ Please aim for a story length of approximately {length_tokens[length]} words, ba
         {"role": "user", "content": prompt}
     ]
     
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {openai.api_key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "gpt-3.5-turbo",
-                "messages": messages,
-                "max_tokens": length_tokens[length] * 2,
-                "n": 1,
-                "temperature": 0.8,
-            }
-        ) as response:
-            result = await response.json()
-            return result['choices'][0]['message']['content']
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {openai.api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-3.5-turbo",
+                    "messages": messages,
+                    "max_tokens": length_tokens[length] * 2,
+                    "n": 1,
+                    "temperature": 0.8,
+                }
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise Exception(f"API request failed with status {response.status}: {error_text}")
+                
+                result = await response.json()
+                
+                if 'choices' not in result or len(result['choices']) == 0:
+                    raise Exception(f"Unexpected API response format: {result}")
+                
+                return result['choices'][0]['message']['content']
+    except Exception as e:
+        st.error(f"An error occurred while generating the story: {str(e)}")
+        return "I apologize, but I encountered an error while trying to generate the story. Please try again later."
 
 @st.cache_data
 def edit_story(original_story, user_edits, genre, length):
@@ -86,7 +98,7 @@ def edit_story(original_story, user_edits, genre, length):
         n=1,
         temperature=0.8,
     )
-    return response.choices[0].message['content']
+    return response['choices'][0]['message']['content']
 
 def generate_story_ideas():
     """
