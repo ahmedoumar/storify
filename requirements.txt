@@ -12,4 +12,5 @@ Pillow
 gTTS
 pydub
 watchdog
-
+aiosmtplib
+tenacity
