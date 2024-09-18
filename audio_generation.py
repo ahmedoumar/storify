@@ -1,11 +1,8 @@
 from gtts import gTTS
-import tempfile
-import os
-import streamlit as st
-from pydub import AudioSegment
 import io
+import streamlit as st
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def text_to_speech(text, lang='en', slow=False):
     """
     Convert text to speech using Google Text-to-Speech API.
@@ -21,14 +18,10 @@ def text_to_speech(text, lang='en', slow=False):
     try:
         tts = gTTS(text=text, lang=lang, slow=slow)
         
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
-            tts.save(temp_file.name)
-            temp_file_path = temp_file.name
-        
-        with open(temp_file_path, "rb") as audio_file:
-            audio_bytes = audio_file.read()
-        
-        os.unlink(temp_file_path)
+        # Use an in-memory bytes buffer instead of a temporary file
+        audio_buffer = io.BytesIO()
+        tts.write_to_fp(audio_buffer)
+        audio_bytes = audio_buffer.getvalue()
         
         return audio_bytes
     except Exception as e:
@@ -62,7 +55,7 @@ def split_text(text, max_length=5000):
 
     return chunks
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def generate_audio_for_story(story_text, lang='en'):
     """
     Generate audio for a complete story, handling long texts by splitting them.

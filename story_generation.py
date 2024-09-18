@@ -5,7 +5,7 @@ import aiohttp
 import hashlib
 import streamlit as st
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600, max_entries=100, show_spinner=False)
 def generate_story(prompt, history, genre, length):
     """
     Generate a story based on the given prompt, history, genre, and length.
@@ -75,7 +75,7 @@ Please aim for a story length of approximately {length_tokens[length]} words, ba
         st.error(f"An error occurred while generating the story: {str(e)}")
         return "I apologize, but I encountered an error while trying to generate the story. Please try again later."
 
-@st.cache_data
+@st.cache_data(ttl=3600, show_spinner=False)
 def edit_story(original_story, user_edits, genre, length):
     """
     Edit an existing story based on user edits, maintaining the genre and approximate length.
@@ -100,6 +100,7 @@ def edit_story(original_story, user_edits, genre, length):
     )
     return response['choices'][0]['message']['content']
 
+@st.cache_data(show_spinner=False)
 def generate_story_ideas():
     """
     Generate random story ideas to inspire users.

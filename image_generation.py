@@ -4,7 +4,7 @@ from PIL import Image
 from io import BytesIO
 import streamlit as st
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def generate_story_image_dalle(prompt, size="512x512"):
     """
     Generate an image using DALL-E based on the given prompt.
@@ -54,7 +54,7 @@ def preprocess_prompt(story_content, max_length=1000):
     
     return prompt
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def generate_story_image(story_content, size="512x512"):
     """
     Generate an image based on the story content.

@@ -211,6 +211,10 @@ def sidebar_settings():
     st.session_state.story_length = st.sidebar.radio("Length:", ["Short", "Medium", "Long"])
     st.session_state.story_type = st.sidebar.radio("Type:", ["Text", "Visual", "Audio"])
     
+    st.sidebar.markdown("### Accessibility")
+    font_size = st.sidebar.slider("Font Size", min_value=12, max_value=24, value=16)
+    st.markdown(f"<style>body {{font-size: {font_size}px;}}</style>", unsafe_allow_html=True)
+    
     if st.sidebar.button("Generate Story Idea"):
         idea = generate_story_ideas()
         st.session_state.messages.append({"role": "assistant", "content": f"Here's a story idea: {idea}"})
@@ -240,14 +244,20 @@ def handle_message_actions(i, message):
     with col2:
         st.button('👎', key=f"thumbs_down_{i}", help="Dislike this response")
     with col3:
-        st.button('Edit', key=f"edit_{i}", help="Edit this story")
+        if st.button('Edit', key=f"edit_{i}", help="Edit this story"):
+            st.session_state.editing_story = True
+            st.session_state.current_story = message['content']
+            st.rerun()
     with col4:
         if 'audio' not in message:
             if st.button('Listen', key=f"listen_{i}", help="Convert to speech"):
                 with st.spinner("Generating audio..."):
                     audio_bytes = text_to_speech(message['content'])
-                    message['audio'] = audio_bytes
-                st.audio(message['audio'], format='audio/mp3')
+                    if audio_bytes:
+                        message['audio'] = audio_bytes
+                        st.audio(audio_bytes, format='audio/wav')
+                    else:
+                        st.error("Failed to generate audio. Please try again.")
         if 'image' not in message:
             if st.button('Image', key=f"gen_image_{i}", help="Generate image"):
                 with st.spinner("Generating image..."):
@@ -285,18 +295,20 @@ def handle_user_input():
             message_placeholder = st.empty()
             full_response = ""
             current_word = ""
-            for char in generate_story(prompt, st.session_state.messages[:-1], st.session_state.story_genre, st.session_state.story_length):
-                if char.isspace() or char in ".,!?;:":
-                    if current_word:
-                        full_response += current_word + char
-                        current_word = ""
+            
+            with st.spinner("Running..."):
+                for char in generate_story(prompt, st.session_state.messages[:-1], st.session_state.story_genre, st.session_state.story_length):
+                    if char.isspace() or char in ".,!?;:":
+                        if current_word:
+                            full_response += current_word + char
+                            current_word = ""
+                        else:
+                            full_response += char
                     else:
-                        full_response += char
-                else:
-                    current_word += char
-                
-                time.sleep(0.00005)
-                message_placeholder.markdown(full_response + current_word + "▌")
+                        current_word += char
+                    
+                    time.sleep(0.00005)
+                    message_placeholder.markdown(full_response + current_word + "▌")
             
             if current_word:
                 full_response += current_word
@@ -306,7 +318,7 @@ def handle_user_input():
             new_message = {"role": "assistant", "content": full_response.strip()}
             
             if st.session_state.story_type == "Visual":
-                with st.spinner("Generating image..."):
+                with st.spinner("Running..."):
                     image = generate_story_image_dalle(full_response[:1000])
                     if image:
                         new_message["image"] = image_to_base64(image)
@@ -314,25 +326,32 @@ def handle_user_input():
             elif st.session_state.story_type == "Audio":
                 with st.spinner("Generating audio..."):
                     audio_bytes = text_to_speech(full_response)
-                    new_message["audio"] = audio_bytes
-                    st.audio(audio_bytes, format='audio/mp3')
+                    if audio_bytes:
+                        new_message["audio"] = audio_bytes
+                        st.audio(audio_bytes, format='audio/wav')
+                    else:
+                        st.error("Failed to generate audio. Please try again.")
             
             st.session_state.messages.append(new_message)
 
 def main():
-    initialize_session_state()
-    handle_email_confirmation()
-    handle_password_reset()
-    handle_authentication()
-    
-    if st.session_state.email:
-        sidebar_settings()
-        st.title("Storify Chat")
-        if st.session_state.editing_story:
-            handle_story_editing()
-        else:
-            display_chat()
-            handle_user_input()
+    try:
+        initialize_session_state()
+        handle_email_confirmation()
+        handle_password_reset()
+        handle_authentication()
+        
+        if st.session_state.email:
+            sidebar_settings()
+            st.title("Storify Chat")
+            if st.session_state.editing_story:
+                handle_story_editing()
+            else:
+                display_chat()
+                handle_user_input()
+    except Exception as e:
+        st.error(f"An unexpected error occurred: {str(e)}")
+        logging.error(f"Unexpected error: {str(e)}", exc_info=True)
 
 if __name__ == "__main__":
     main()
