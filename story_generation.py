@@ -5,6 +5,9 @@ import aiohttp
 import hashlib
 import streamlit as st
 
+# Set your OpenAI API key
+openai.api_key = st.secrets["OPENAI_API_KEY"]
+
 @st.cache_data(ttl=3600, max_entries=100, show_spinner=False)
 def generate_story(prompt, history, genre, length):
     """
