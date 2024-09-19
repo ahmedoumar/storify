@@ -54,7 +54,7 @@ Please aim for a story length of approximately {length_tokens[length]} words, ba
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": "gpt-3.5-turbo",
+                    "model": "gpt-4-1106-preview",
                     "messages": messages,
                     "max_tokens": length_tokens[length] * 2,
                     "n": 1,

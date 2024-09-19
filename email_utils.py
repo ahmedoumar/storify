@@ -1,22 +1,21 @@
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import os
-from dotenv import load_dotenv
+import toml
 
-# Load environment variables
-load_dotenv()
+# Load secrets from secrets.toml
+secrets = toml.load('.streamlit/secrets.toml')
 
 def send_email(to_email, subject, body):
     """
     Send an email using SMTP.
     """
-    # Use environment variables for email configuration
-    smtp_server = os.getenv('SMTP_SERVER')
-    smtp_port = int(os.getenv('SMTP_PORT', 587))
-    smtp_username = os.getenv('SMTP_USERNAME')
-    smtp_password = os.getenv('SMTP_PASSWORD')
-    from_email = os.getenv('FROM_EMAIL')
+    # Use secrets for email configuration
+    smtp_server = secrets['smtp']['server']
+    smtp_port = secrets['smtp']['port']
+    smtp_username = secrets['smtp']['username']
+    smtp_password = secrets['smtp']['password']
+    from_email = secrets['smtp']['from_email']
 
     message = MIMEMultipart()
     message['From'] = from_email
