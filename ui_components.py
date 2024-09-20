@@ -1,4 +1,5 @@
 import streamlit as st
+import logging
 from auth import (
     verify_user, 
     store_confirmation_token, 
@@ -79,23 +80,39 @@ def handle_authentication():
                 if st.button("Send Verification Token", use_container_width=True):
                     if not user_exists(new_email):
                         confirmation_token = generate_confirmation_token()
-                        if store_confirmation_token(new_email, confirmation_token):
-                            send_confirmation_email(new_email, confirmation_token)
-                            st.success("Verification token sent to your email. Please check and enter it below.")
-                            st.session_state.signup_email = new_email
-                            st.session_state.show_confirmation_fields = True
-                        else:
-                            st.error("An error occurred. Please try again.")
+                        try:
+                            logging.info(f"Attempting to store confirmation token for email: {new_email}")
+                            token_stored = store_confirmation_token(new_email, confirmation_token)
+                            if token_stored:
+                                logging.info(f"Confirmation token stored successfully for email: {new_email}")
+                                try:
+                                    send_confirmation_email(new_email, confirmation_token)
+                                    logging.info(f"Confirmation email sent successfully to: {new_email}")
+                                    st.success("Verification token sent to your email. Please check and enter it below.")
+                                    st.session_state.signup_email = new_email
+                                    st.session_state.show_confirmation_fields = True
+                                except Exception as e:
+                                    logging.error(f"Error sending confirmation email: {str(e)}")
+                                    st.error(f"Failed to send confirmation email. Please try again. Error: {str(e)}")
+                            else:
+                                st.error("Failed to store confirmation token. Please try again.")
+                        except Exception as e:
+                            logging.error(f"Error in signup process: {str(e)}")
+                            st.error(f"An error occurred during signup: {str(e)}. Please try again.")
                     else:
                         st.error("Email already exists. Please login or use a different email.")
                         if st.button("Resend Confirmation Email"):
                             confirmation_token = generate_confirmation_token()
-                            if store_confirmation_token(new_email, confirmation_token):
-                                send_confirmation_email(new_email, confirmation_token)
-                                st.success("Confirmation email resent. Please check your inbox.")
-                                st.session_state.show_confirmation_fields = True
-                            else:
-                                st.error("An error occurred. Please try again.")
+                            try:
+                                if store_confirmation_token(new_email, confirmation_token):
+                                    send_confirmation_email(new_email, confirmation_token)
+                                    st.success("Confirmation email resent. Please check your inbox.")
+                                    st.session_state.show_confirmation_fields = True
+                                else:
+                                    st.error("Failed to store confirmation token. Please try again.")
+                            except Exception as e:
+                                logging.error(f"Error in resending confirmation email: {str(e)}")
+                                st.error(f"An error occurred: {str(e)}. Please try again.")
 
                 if st.session_state.show_confirmation_fields:
                     confirmation_token = st.text_input("Confirmation Token")
@@ -141,9 +158,7 @@ def handle_authentication():
                             else:
                                 st.error("An error occurred while resetting your password. Please try again.")
                         else:
-                            st.error("Invalid reset token. Please check and try again.")
-                    else:
-                        st.error("Passwords do not match. Please try again.")
+                            st.error("Passwords do not match. Please try again.")
 
     else:
         st.write(f"Welcome, {st.session_state.email}!")

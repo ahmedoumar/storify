@@ -1,8 +1,17 @@
 import streamlit as st
 import logging
 
-# Set page config at the very beginning
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Set page config at the very beginning, before any other imports or operations
 st.set_page_config(layout="wide")
+
+import logging
+from database import get_database_connection, close_database_connection
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 from auth import (
     verify_user, 
@@ -30,13 +39,9 @@ from dotenv import load_dotenv
 import os
 import openai
 
-#load_dotenv()
-#openai.api_key = os.getenv("OPENAI_API_KEY")
-
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+# ... (rest of the code remains the same)
 
 def initialize_session_state():
     if 'messages' not in st.session_state:
@@ -142,9 +147,11 @@ def handle_user_input():
 
 def main():
     try:
+        # Ensure database connection is established
+        get_database_connection()
+        
         initialize_session_state()
         handle_email_confirmation()
-        handle_password_reset()
         from ui_components import handle_authentication, sidebar_settings, display_chat
 
         handle_authentication()
@@ -159,7 +166,10 @@ def main():
                 handle_user_input()
     except Exception as e:
         st.error(f"An unexpected error occurred: {str(e)}")
-        logging.error(f"Unexpected error: {str(e)}", exc_info=True)
+        logging.exception("Unexpected error in main function")
+    finally:
+        # We're not closing the connection here anymore
+        pass
 
 if __name__ == "__main__":
     main()

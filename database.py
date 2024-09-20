@@ -1,13 +1,59 @@
 import sqlite3
 import streamlit as st
+import os
+import logging
 from contextlib import contextmanager
-
+from threading import Lock, get_ident  # Add this import
+import threading
 # Database file name
 DB_NAME = 'storify_users.db'
 
+# Connection pool
+connection_pool = {}
+connection_pool_lock = Lock()
+
 @st.cache_resource
 def get_database_connection():
-    return sqlite3.connect(DB_NAME, check_same_thread=False)
+    thread_id = get_ident()
+    with connection_pool_lock:
+        if thread_id not in connection_pool:
+            try:
+                conn = sqlite3.connect(DB_NAME, check_same_thread=False)
+                logging.info(f"Successfully connected to database: {DB_NAME}")
+                create_tables_if_not_exist(conn)
+                connection_pool[thread_id] = conn
+            except sqlite3.Error as e:
+                logging.error(f"Error connecting to database: {str(e)}")
+                raise
+        return connection_pool[thread_id]
+
+def close_database_connection():
+    thread_id = threading.get_ident()
+    with connection_pool_lock:
+        if thread_id in connection_pool:
+            connection_pool[thread_id].close()
+            del connection_pool[thread_id]
+
+def create_tables_if_not_exist(conn):
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE,
+            password TEXT,
+            confirmation_token TEXT,
+            is_confirmed INTEGER DEFAULT 0,
+            reset_token TEXT
+        )
+        ''')
+        conn.commit()
+        logging.info("Users table created or already exists")
+    except sqlite3.Error as e:
+        logging.error(f"Error creating users table: {str(e)}")
+        raise
+    finally:
+        cursor.close()
 
 @contextmanager
 def get_cursor():

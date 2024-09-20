@@ -187,20 +187,38 @@ def store_confirmation_token(email, token):
     """
     Store a confirmation token for a new user.
     """
-    conn = get_database_connection()
-    c = conn.cursor()
     try:
-        c.execute("UPDATE users SET confirmation_token = ?, is_confirmed = 0 WHERE email = ?", 
-                  (token, email))
-        if c.rowcount == 0:
-            c.execute("INSERT INTO users (email, confirmation_token, is_confirmed) VALUES (?, ?, 0)", 
-                      (email, token))
+        logging.info(f"Attempting to store confirmation token for email: {email}")
+        conn = get_database_connection()
+        c = conn.cursor()
+        
+        # Check if the user already exists
+        c.execute("SELECT * FROM users WHERE email = ?", (email,))
+        existing_user = c.fetchone()
+        
+        if existing_user:
+            logging.info(f"Updating existing user with email: {email}")
+            c.execute("UPDATE users SET confirmation_token = ?, is_confirmed = 0 WHERE email = ?", 
+                      (token, email))
+        else:
+            logging.info(f"Inserting new user with email: {email}")
+            # Use a placeholder password when creating a new user
+            placeholder_password = "PLACEHOLDER_PASSWORD"
+            c.execute("INSERT INTO users (email, password, confirmation_token, is_confirmed) VALUES (?, ?, ?, 0)", 
+                      (email, placeholder_password, token))
+        
         conn.commit()
-        c.close()
+        logging.info(f"Confirmation token stored successfully for email: {email}")
         return True
     except sqlite3.Error as e:
-        logging.error(f"Database error in store_confirmation_token: {str(e)}")
-        c.close()
+        logging.error(f"SQLite error in store_confirmation_token: {str(e)}")
+        if conn:
+            conn.rollback()
+        return False
+    except Exception as e:
+        logging.error(f"Unexpected error in store_confirmation_token: {str(e)}")
+        if conn:
+            conn.rollback()
         return False
 
 def verify_confirmation_token(email, token):

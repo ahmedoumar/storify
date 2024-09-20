@@ -2,6 +2,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import toml
+import logging
 
 # Load secrets from secrets.toml
 secrets = toml.load('.streamlit/secrets.toml')
@@ -11,11 +12,11 @@ def send_email(to_email, subject, body):
     Send an email using SMTP.
     """
     # Use secrets for email configuration
-    smtp_server = secrets['smtp']['server']
-    smtp_port = secrets['smtp']['port']
-    smtp_username = secrets['smtp']['username']
-    smtp_password = secrets['smtp']['password']
-    from_email = secrets['smtp']['from_email']
+    smtp_server = secrets['SMTP_SERVER']
+    smtp_port = secrets['SMTP_PORT']
+    smtp_username = secrets['SMTP_USERNAME']
+    smtp_password = secrets['SMTP_PASSWORD']
+    from_email = secrets['FROM_EMAIL']
 
     message = MIMEMultipart()
     message['From'] = from_email
@@ -25,15 +26,22 @@ def send_email(to_email, subject, body):
     message.attach(MIMEText(body, 'plain'))
 
     try:
+        logging.info(f"Attempting to connect to SMTP server: {smtp_server}:{smtp_port}")
         with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.ehlo()  # Can be omitted
+            logging.info("SMTP connection established")
+            server.ehlo()
             server.starttls()
-            server.ehlo()  # Can be omitted
+            server.ehlo()
+            logging.info(f"Attempting to login with username: {smtp_username}")
             server.login(smtp_username, smtp_password)
+            logging.info("SMTP login successful")
             server.send_message(message)
-            print(f"Email sent successfully to {to_email}")
+            logging.info(f"Email sent successfully to {to_email}")
+    except smtplib.SMTPException as e:
+        logging.error(f"SMTP error occurred: {str(e)}")
+        raise
     except Exception as e:
-        print(f"Failed to send email: {str(e)}")
+        logging.error(f"Unexpected error in send_email: {str(e)}")
         raise
 
 def send_confirmation_email(to_email, confirmation_token):
@@ -42,7 +50,7 @@ def send_confirmation_email(to_email, confirmation_token):
     """
     subject = "Confirm Your Storify Account"
     body = f"""
-    Welcome to Storify! Please confirm your email address by clicking the link below:
+    Welcome to Storify! Please confirm your email address by copying the token below:
     
     {confirmation_token}
     
