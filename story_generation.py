@@ -8,23 +8,26 @@ import streamlit as st
 # Set your OpenAI API key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
+# Set your Groq API key
+GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+
 @st.cache_data(ttl=3600, max_entries=100, show_spinner=False)
-def generate_story(prompt, history, genre, length):
+def generate_story(prompt, history, genre, length, model):
     """
-    Generate a story based on the given prompt, history, genre, and length.
+    Generate a story based on the given prompt, history, genre, length, and model.
     This function uses caching to improve performance and reduce API calls.
     """
-    input_key = hashlib.md5(f"{prompt}|{history}|{genre}|{length}".encode()).hexdigest()
+    input_key = hashlib.md5(f"{prompt}|{history}|{genre}|{length}|{model}".encode()).hexdigest()
     
     @st.cache_data(ttl=3600, show_spinner=False)
     def _generate_story(input_key):
-        return asyncio.run(generate_story_async(prompt, history, genre, length))
+        return asyncio.run(generate_story_async(prompt, history, genre, length, model))
 
     return _generate_story(input_key)
 
-async def generate_story_async(prompt, history, genre, length):
+async def generate_story_async(prompt, history, genre, length, model):
     """
-    Asynchronous function to generate a story using the OpenAI API.
+    Asynchronous function to generate a story using either the OpenAI API or Groq API.
     """
     length_tokens = {"Short": 200, "Medium": 500, "Long": 800}
     
@@ -50,34 +53,55 @@ Please aim for a story length of approximately {length_tokens[length]} words, ba
     
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {openai.api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "gpt-4-1106-preview",
-                    "messages": messages,
-                    "max_tokens": length_tokens[length] * 2,
-                    "n": 1,
-                    "temperature": 0.8,
-                }
-            ) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    raise Exception(f"API request failed with status {response.status}: {error_text}")
-                
-                result = await response.json()
-                
-                if 'choices' not in result or len(result['choices']) == 0:
-                    raise Exception(f"Unexpected API response format: {result}")
-                
-                return result['choices'][0]['message']['content']
+            if model == "llama-3.1-70b-versatile":
+                # Use Groq API
+                async with session.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {GROQ_API_KEY}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": model,
+                        "messages": messages,
+                        "max_tokens": length_tokens[length] * 2,
+                        "temperature": 0.8,
+                    }
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        raise Exception(f"Groq API request failed with status {response.status}: {error_text}")
+                    
+                    result = await response.json()
+            else:
+                # Use OpenAI API
+                async with session.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {openai.api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": model,
+                        "messages": messages,
+                        "max_tokens": length_tokens[length] * 2,
+                        "n": 1,
+                        "temperature": 0.8,
+                    }
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        raise Exception(f"OpenAI API request failed with status {response.status}: {error_text}")
+                    
+                    result = await response.json()
+            
+            if 'choices' not in result or len(result['choices']) == 0:
+                raise Exception(f"Unexpected API response format: {result}")
+            
+            return result['choices'][0]['message']['content']
     except Exception as e:
         st.error(f"An error occurred while generating the story: {str(e)}")
         return "I apologize, but I encountered an error while trying to generate the story. Please try again later."
-
 @st.cache_data(ttl=3600, show_spinner=False)
 def edit_story(original_story, user_edits, genre, length):
     """

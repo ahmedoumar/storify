@@ -3,6 +3,8 @@ import requests
 from PIL import Image
 from io import BytesIO
 import streamlit as st
+from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
+import torch
 
 @st.cache_data(show_spinner=False)
 def generate_story_image_dalle(prompt, size="512x512"):
@@ -54,20 +56,56 @@ def preprocess_prompt(story_content, max_length=1000):
     
     return prompt
 
+@st.cache_resource
+def load_stable_diffusion_model(model_id):
+    pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16)
+    pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+    pipe = pipe.to("cuda" if torch.cuda.is_available() else "cpu")
+    return pipe
+
 @st.cache_data(show_spinner=False)
-def generate_story_image(story_content, size="512x512"):
+def generate_story_image_stable_diffusion(prompt, size=(512, 512), model_id="stabilityai/stable-diffusion-2-1"):
     """
-    Generate an image based on the story content.
+    Generate an image using Stable Diffusion based on the given prompt.
+    
+    Args:
+    prompt (str): The text prompt to generate the image from.
+    size (tuple): The size of the image to generate.
+    model_id (str): The Hugging Face model ID for the Stable Diffusion model.
+    
+    Returns:
+    PIL.Image.Image or None: The generated image as a PIL Image object, or None if generation failed.
+    """
+    try:
+        pipe = load_stable_diffusion_model(model_id)
+        image = pipe(prompt, height=size[1], width=size[0]).images[0]
+        return image
+    except Exception as e:
+        st.error(f"Failed to generate image with Stable Diffusion: {str(e)}")
+        return None
+
+@st.cache_data(show_spinner=False)
+def generate_story_image(story_content, size=(512, 512), model="dalle"):
+    """
+    Generate an image based on the story content using the specified model.
     
     Args:
     story_content (str): The full story content.
-    size (str): The size of the image to generate.
+    size (tuple): The size of the image to generate.
+    model (str): The model to use for image generation ("dalle" or a Stable Diffusion model ID).
     
     Returns:
     PIL.Image.Image or None: The generated image as a PIL Image object, or None if generation failed.
     """
     prompt = preprocess_prompt(story_content)
-    return generate_story_image_dalle(prompt, size)
+    
+    if model == "dalle":
+        return generate_story_image_dalle(prompt, f"{size[0]}x{size[1]}")
+    elif model.startswith("stabilityai/") or model.startswith("runwayml/"):
+        return generate_story_image_stable_diffusion(prompt, size, model_id=model)
+    else:
+        st.error(f"Unknown model: {model}")
+        return None
 
 def resize_image(image, max_size=(800, 600)):
     """

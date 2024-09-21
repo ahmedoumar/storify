@@ -108,7 +108,7 @@ def handle_user_input():
             current_word = ""
             
             with st.spinner("Running..."):
-                for char in generate_story(prompt, st.session_state.messages[:-1], st.session_state.story_genre, st.session_state.story_length):
+                for char in generate_story(prompt, st.session_state.messages[:-1], st.session_state.story_genre, st.session_state.story_length, st.session_state.text_model_id):
                     if char.isspace() or char in ".,!?;:":
                         if current_word:
                             full_response += current_word + char

@@ -19,6 +19,7 @@ from story_generation import generate_story_ideas
 from image_generation import generate_story_image_dalle
 from audio_generation import text_to_speech
 from utils import image_to_base64, base64_to_image
+from image_generation import generate_story_image
 
 def handle_authentication():
     if st.session_state.email is None:
@@ -169,13 +170,28 @@ def handle_authentication():
 def sidebar_settings():
     st.sidebar.title("Storify")
     st.sidebar.subheader("Settings")
-    st.session_state.story_genre = st.sidebar.selectbox("Genre:", ["Any", "Science Fiction", "Fantasy", "Mystery", "Historical", "Romance"])
-    st.session_state.story_length = st.sidebar.radio("Length:", ["Short", "Medium", "Long"])
-    st.session_state.story_type = st.sidebar.radio("Type:", ["Text", "Visual", "Audio"])
+    st.session_state.story_genre = st.sidebar.selectbox("Genre:", ["Any", "Science Fiction", "Fantasy", "Mystery", "Historical", "Romance"], key="genre_select")
+    st.session_state.story_length = st.sidebar.radio("Length:", ["Short", "Medium", "Long"], key="length_radio")
+    st.session_state.story_type = st.sidebar.radio("Type:", ["Text", "Visual", "Audio"], key="type_radio")
     
-    st.sidebar.markdown("### Accessibility")
-    font_size = st.sidebar.slider("Font Size", min_value=12, max_value=24, value=16)
-    st.markdown(f"<style>body {{font-size: {font_size}px;}}</style>", unsafe_allow_html=True)
+    # Add model selection for text generation
+    text_models = {
+        "GPT-4": "gpt-4-1106-preview",
+        "GPT-3.5 Turbo": "gpt-3.5-turbo",
+        "Meta Llama 70B (Groq)": "llama-3.1-70b-versatile"
+    }
+    st.session_state.text_model = st.sidebar.selectbox("Text Generation Model:", list(text_models.keys()), key="text_model_select")
+    st.session_state.text_model_id = text_models[st.session_state.text_model]
+    
+    if st.session_state.story_type == "Visual":
+        image_models = {
+            "DALL-E": "dalle",
+            "Stable Diffusion v1.5": "runwayml/stable-diffusion-v1-5",
+            "Stable Diffusion v2.1": "stabilityai/stable-diffusion-2-1",
+            "Stable Diffusion XL": "stabilityai/stable-diffusion-xl-base-1.0"
+        }
+        st.session_state.image_model = st.sidebar.selectbox("Image Generation Model:", list(image_models.keys()), key="image_model_select")
+        st.session_state.image_model_id = image_models[st.session_state.image_model]
     
     if st.sidebar.button("Generate Story Idea"):
         idea = generate_story_ideas()
@@ -202,17 +218,17 @@ def display_chat():
 def handle_message_actions(i, message):
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.button('👍', key=f"thumbs_up_{i}", help="Like this response")
+        st.button('👍', key=f"action_{i}_1", help="Like this response")
     with col2:
-        st.button('👎', key=f"thumbs_down_{i}", help="Dislike this response")
+        st.button('👎', key=f"action_{i}_2", help="Dislike this response")
     with col3:
-        if st.button('Edit', key=f"edit_{i}", help="Edit this story"):
+        if st.button('Edit', key=f"action_{i}_3", help="Edit this story"):
             st.session_state.editing_story = True
             st.session_state.current_story = message['content']
             st.rerun()
     with col4:
         if 'audio' not in message:
-            if st.button('Listen', key=f"listen_{i}", help="Convert to speech"):
+            if st.button('Listen', key=f"action_{i}_4", help="Convert to speech"):
                 with st.spinner("Generating audio..."):
                     audio_bytes = text_to_speech(message['content'])
                     if audio_bytes:
@@ -220,10 +236,11 @@ def handle_message_actions(i, message):
                         st.audio(audio_bytes, format='audio/wav')
                     else:
                         st.error("Failed to generate audio. Please try again.")
+        
         if 'image' not in message:
-            if st.button('Image', key=f"gen_image_{i}", help="Generate image"):
+            if st.button('Image', key=f"action_{i}_5", help="Generate image"):
                 with st.spinner("Generating image..."):
-                    image = generate_story_image_dalle(message['content'][:1000])
+                    image = generate_story_image(message['content'][:1000], model=st.session_state.image_model_id)
                     if image:
                         message['image'] = image_to_base64(image)
                         st.rerun()
