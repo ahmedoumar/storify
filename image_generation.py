@@ -5,9 +5,12 @@ from io import BytesIO
 import streamlit as st
 from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
 import torch
+from openai import OpenAI
+
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 @st.cache_data(show_spinner=False)
-def generate_story_image_dalle(prompt, size="512x512"):
+def generate_story_image_dalle(prompt, size="1024x1024"):
     """
     Generate an image using DALL-E based on the given prompt.
     
@@ -19,17 +22,24 @@ def generate_story_image_dalle(prompt, size="512x512"):
     PIL.Image.Image or None: The generated image as a PIL Image object, or None if generation failed.
     """
     try:
-        response = openai.Image.create(
+        # DALL-E 3 only supports "1024x1024", "1792x1024", or "1024x1792"
+        if size not in ["1024x1024", "1792x1024", "1024x1792"]:
+            size = "1024x1024"  # Default to 1024x1024 if an unsupported size is provided
+        
+        response = client.images.generate(
+            model="dall-e-3",
             prompt=prompt,
+            size=size,
+            quality="standard",
             n=1,
-            size=size
         )
-        image_url = response['data'][0]['url']
+
+        image_url = response.data[0].url
         image_response = requests.get(image_url)
-        img = Image.open(BytesIO(image_response.content))
-        return img
+        image = Image.open(BytesIO(image_response.content))
+        return image
     except Exception as e:
-        st.error(f"Failed to generate image: {str(e)}")
+        st.error(f"An error occurred while generating the image: {str(e)}")
         return None
 
 def preprocess_prompt(story_content, max_length=1000):

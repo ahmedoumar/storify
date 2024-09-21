@@ -189,7 +189,8 @@ def sidebar_settings():
     text_models = {
         "GPT-4": "gpt-4-1106-preview",
         "GPT-3.5 Turbo": "gpt-3.5-turbo",
-        "Meta Llama 70B": "llama-3.1-70b-versatile"
+        "Meta Llama 70B": "llama-3.1-70b-versatile",
+        "Meta-Llama-3.1-405B-Instruct": "Meta-Llama-3.1-405B-Instruct"  # Added new model
     }
     st.session_state.text_model = st.sidebar.selectbox("Text Generation Model:", list(text_models.keys()), key="text_model_select")
     st.session_state.text_model_id = text_models[st.session_state.text_model]

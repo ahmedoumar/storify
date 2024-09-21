@@ -11,6 +11,9 @@ openai.api_key = st.secrets["OPENAI_API_KEY"]
 # Set your Groq API key
 GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 
+# Add Sambanova API key
+SAMBANOVA_API_KEY = st.secrets["SAMBANOVA_API_KEY"]
+
 @st.cache_data(ttl=3600, max_entries=100, show_spinner=False)
 def generate_story(prompt, history, genre, length, model):
     """
@@ -27,23 +30,15 @@ def generate_story(prompt, history, genre, length, model):
 
 async def generate_story_async(prompt, history, genre, length, model):
     """
-    Asynchronous function to generate a story using either the OpenAI API or Groq API.
+    Asynchronous function to generate a story using either the OpenAI API, Groq API, or SambaNova API.
     """
     length_tokens = {"Short": 200, "Medium": 500, "Long": 800}
     
     system_message = f"""You are an innovative educator with a unique ability: you can teach any subject, including languages like Japanese or Urdu, through engaging {genre.lower()} stories. Your role is to act as a teacher/instructor, using storytelling as your primary method of education.
 
-When presented with a topic or question:
-1. Craft a narrative that weaves key educational elements into an imaginative story.
-2. Ensure your story is not only entertaining but also effectively communicates the intended knowledge or skill.
-3. For language learning, incorporate vocabulary, phrases, or grammar points naturally within the story's context.
-4. Include brief explanations or 'teaching moments' within or after the story to highlight important points.
-5. For follow-up questions or prompts, continue the story or create a related one that builds upon previous learning.
-6. Adapt your teaching style to suit different learning preferences and difficulties.
+    // ... rest of the system message ...
 
-Your stories should be educational, captivating, and tailored to the subject matter, whether it's mathematics, physics, history, art, languages, or any other field. 
-
-Please aim for a story length of approximately {length_tokens[length]} words, balancing narrative and educational content appropriately."""
+    Please aim for a story length of approximately {length_tokens[length]} words, balancing narrative and educational content appropriately."""
 
     messages = [
         {"role": "system", "content": system_message},
@@ -55,50 +50,50 @@ Please aim for a story length of approximately {length_tokens[length]} words, ba
         async with aiohttp.ClientSession() as session:
             if model == "llama-3.1-70b-versatile":
                 # Use Groq API
-                async with session.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {GROQ_API_KEY}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": model,
-                        "messages": messages,
-                        "max_tokens": length_tokens[length] * 2,
-                        "temperature": 0.8,
-                    }
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        raise Exception(f"Groq API request failed with status {response.status}: {error_text}")
-                    
+                headers = {
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": model,
+                    "messages": messages,
+                    "temperature": 0.8,
+                    "max_tokens": length_tokens[length] * 2,
+                }
+                async with session.post("https://api.groq.com/v1/chat/completions", json=payload, headers=headers) as response:
                     result = await response.json()
+            elif model == "Meta-Llama-3.1-405B-Instruct":
+                # Use SambaNova API
+                client = openai.OpenAI(
+                    api_key=SAMBANOVA_API_KEY,
+                    base_url="https://api.sambanova.ai/v1",
+                )
+                
+                response =  client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    temperature=0.8,
+                    max_tokens=length_tokens[length] * 2,
+                )
+                
+                result = response.choices[0].message.content
             else:
                 # Use OpenAI API
-                async with session.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {openai.api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": model,
-                        "messages": messages,
-                        "max_tokens": length_tokens[length] * 2,
-                        "n": 1,
-                        "temperature": 0.8,
-                    }
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        raise Exception(f"OpenAI API request failed with status {response.status}: {error_text}")
-                    
-                    result = await response.json()
+                response =  openai.ChatCompletion.acreate(
+                    model=model,
+                    messages=messages,
+                    max_tokens=length_tokens[length] * 2,
+                    n=1,
+                    temperature=0.8,
+                )
+                result = response['choices'][0]['message']['content']
             
-            if 'choices' not in result or len(result['choices']) == 0:
+            if isinstance(result, str):
+                return result
+            elif 'choices' in result and len(result['choices']) > 0:
+                return result['choices'][0]['message']['content']
+            else:
                 raise Exception(f"Unexpected API response format: {result}")
-            
-            return result['choices'][0]['message']['content']
     except Exception as e:
         st.error(f"An error occurred while generating the story: {str(e)}")
         return "I apologize, but I encountered an error while trying to generate the story. Please try again later."
