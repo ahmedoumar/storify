@@ -47,6 +47,7 @@ def handle_authentication():
                         st.error(message)
                         if "not confirmed" in message.lower():
                             st.session_state.show_resend_button = True
+                            st.session_state.unconfirmed_email = email
                 
                 if st.session_state.get('show_resend_button', False) and resend_button:
                     if user_exists(email):
@@ -55,6 +56,7 @@ def handle_authentication():
                             if store_confirmation_token(email, confirmation_token):
                                 send_confirmation_email(email, confirmation_token)
                                 st.success("Confirmation email resent. Please check your inbox.")
+                                st.session_state.show_confirmation_fields = True
                             else:
                                 st.error("Failed to store confirmation token. Please try again.")
                         except Exception as e:
@@ -63,15 +65,24 @@ def handle_authentication():
                     else:
                         st.error("Email not found. Please sign up first.")
                 
-                if st.session_state.get('show_resend_button', False):
+                if st.session_state.get('show_confirmation_fields', False):
                     confirmation_token = st.text_input("Enter Confirmation Token")
-                    if st.button("Confirm Email"):
-                        if confirm_email(email, confirmation_token):
-                            st.success("Email confirmed successfully! You can now log in.")
-                            st.session_state.show_resend_button = False
-                            st.rerun()
+                    new_password = st.text_input("Set New Password", type="password")
+                    confirm_password = st.text_input("Confirm New Password", type="password")
+                    if st.button("Confirm Email and Set Password"):
+                        if new_password == confirm_password:
+                            if confirm_email(st.session_state.unconfirmed_email, confirmation_token):
+                                if add_user(st.session_state.unconfirmed_email, new_password):
+                                    st.success("Email confirmed and password set successfully! You can now log in.")
+                                    st.session_state.show_confirmation_fields = False
+                                    st.session_state.show_resend_button = False
+                                    st.rerun()
+                                else:
+                                    st.error("An error occurred while setting your password. Please try again.")
+                            else:
+                                st.error("Invalid confirmation token. Please check and try again.")
                         else:
-                            st.error("Invalid confirmation token. Please try again.")
+                            st.error("Passwords do not match. Please try again.")
 
             elif auth_option == "Sign Up":
                 new_email = st.text_input("Email")
@@ -178,7 +189,7 @@ def sidebar_settings():
     text_models = {
         "GPT-4": "gpt-4-1106-preview",
         "GPT-3.5 Turbo": "gpt-3.5-turbo",
-        "Meta Llama 70B (Groq)": "llama-3.1-70b-versatile"
+        "Meta Llama 70B": "llama-3.1-70b-versatile"
     }
     st.session_state.text_model = st.sidebar.selectbox("Text Generation Model:", list(text_models.keys()), key="text_model_select")
     st.session_state.text_model_id = text_models[st.session_state.text_model]
