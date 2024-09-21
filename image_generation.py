@@ -16,7 +16,7 @@ def generate_story_image_dalle(prompt, size="1024x1024"):
     
     Args:
     prompt (str): The text prompt to generate the image from.
-    size (str): The size of the image to generate. Options are "256x256", "512x512", or "1024x1024".
+    size (str): The size of the image to generate. Options are "1024x1024", "1792x1024", or "1024x1792".
     
     Returns:
     PIL.Image.Image or None: The generated image as a PIL Image object, or None if generation failed.

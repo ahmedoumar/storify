@@ -1,6 +1,6 @@
 anthropic==0.3.4
 matplotlib
-openai
+openai==1.47.0
 pandas
 python-dotenv==1.0.0
 requests==2.31.0

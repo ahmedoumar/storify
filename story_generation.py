@@ -4,9 +4,10 @@ import asyncio
 import aiohttp
 import hashlib
 import streamlit as st
+from openai import OpenAI
 
 # Set your OpenAI API key
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # Set your Groq API key
 GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
@@ -64,12 +65,12 @@ async def generate_story_async(prompt, history, genre, length, model):
                     result = await response.json()
             elif model == "Meta-Llama-3.1-405B-Instruct":
                 # Use SambaNova API
-                client = openai.OpenAI(
+                sambanova_client = OpenAI(
                     api_key=SAMBANOVA_API_KEY,
                     base_url="https://api.sambanova.ai/v1",
                 )
                 
-                response =  client.chat.completions.create(
+                response = sambanova_client.chat.completions.create(
                     model=model,
                     messages=messages,
                     temperature=0.8,
@@ -79,14 +80,14 @@ async def generate_story_async(prompt, history, genre, length, model):
                 result = response.choices[0].message.content
             else:
                 # Use OpenAI API
-                response =  openai.ChatCompletion.acreate(
+                response = client.chat.completions.create(
                     model=model,
                     messages=messages,
                     max_tokens=length_tokens[length] * 2,
                     n=1,
                     temperature=0.8,
                 )
-                result = response['choices'][0]['message']['content']
+                result = response.choices[0].message.content
             
             if isinstance(result, str):
                 return result
